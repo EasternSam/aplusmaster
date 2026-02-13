@@ -19,8 +19,10 @@ class LicenseController extends Controller
             'domain'      => 'required|string',
         ]);
 
-        // 2. Buscar la licencia en la base de datos
-        $license = License::where('license_key', $request->license_key)->first();
+        // 2. Buscar la licencia en la base de datos CON SU PAQUETE
+        $license = License::where('license_key', $request->license_key)
+                          ->with('package')
+                          ->first();
 
         // 3. Validar existencia
         if (!$license) {
@@ -48,22 +50,35 @@ class LicenseController extends Controller
 
         // 6. Validar y Registrar Dominio (Previene Piratería)
         if (empty($license->registered_domain)) {
-            // Es la primera vez que se usa (durante la instalación del cliente)
-            // Se "casa" esta licencia con este dominio permanentemente.
             $license->registered_domain = $request->domain;
             $license->save();
         } elseif ($license->registered_domain !== $request->domain) {
-            // Alguien intentó copiar los archivos a otro dominio/servidor
             return response()->json([
                 'status' => 'error', 
                 'message' => 'Esta licencia ya está en uso en un dominio diferente (' . $license->registered_domain . ').'
             ], 403);
         }
 
+        // --- LÓGICA DE PAQUETES Y FUNCIONES ---
+        
+        // A. Obtener funciones base del paquete asignado
+        $features = $license->package ? ($license->package->features ?? []) : [];
+
+        // B. Mezclar con funciones custom (excepciones para este cliente)
+        // Esto permite activar funciones extra a un cliente específico sin cambiarlo de plan
+        if ($license->custom_features) {
+            // array_merge sobreescribe o añade. array_unique quita duplicados.
+            $features = array_values(array_unique(array_merge($features, $license->custom_features)));
+        }
+
         // Todo está perfecto
         return response()->json([
             'status' => 'success', 
-            'message' => 'Licencia válida y operativa.'
+            'message' => 'Licencia válida y operativa.',
+            'data' => [
+                'plan_name' => $license->package->name ?? 'Personalizado',
+                'features'  => $features, // Enviamos la lista de permisos: ['finance', 'academic', etc]
+            ]
         ], 200);
     }
 }

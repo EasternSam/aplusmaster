@@ -15,10 +15,18 @@ class License extends Model
         'registered_domain',
         'is_active',
         'expires_at',
+        'package_id',      // Nuevo: ID del plan base
+        'custom_features', // Nuevo: Excepciones específicas
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'expires_at' => 'date',
+        'custom_features' => 'array',
     ];
+
+    public function package()
+    {
+        return $this->belongsTo(Package::class);
+    }
 }
