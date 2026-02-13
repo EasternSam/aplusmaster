@@ -1,4 +1,7 @@
 <div>
+    <!-- Inyectamos Tailwind CDN para asegurar que el diseño cargue correctamente sin compilación -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <div class="mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
             <h2 class="text-2xl font-bold text-gray-800">Panel Maestro SaaS</h2>
