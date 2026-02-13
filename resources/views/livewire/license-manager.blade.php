@@ -2,7 +2,7 @@
     <div class="mb-6 flex justify-between items-center">
         <div>
             <h2 class="text-2xl font-bold text-gray-800">Gestión de Clientes (SaaS)</h2>
-            <p class="text-sm text-gray-500">Controla quién tiene acceso a tus distribuciones de SGA.</p>
+            <p class="text-sm text-gray-500">Controlas quién tiene acceso a tus distribuciones de SGA.</p>
         </div>
         <button wire:click="openModal" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition">
             + Nueva Licencia
