@@ -1,0 +1,6 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=$cp_root_dir/repositories/aplusmaster
+    - /bin/cp -R * $DEPLOYPATH
+```
