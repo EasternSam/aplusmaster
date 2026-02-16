@@ -2,7 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\LicenseController;
-use App\Livewire\FeatureManager; // Importamos el componente de Addons
+use App\Http\Controllers\Api\AddonController; // Nuevo Controller
+use App\Livewire\FeatureManager;
 
 Route::view('/', 'welcome');
 
@@ -14,18 +15,17 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-// --- RUTAS DE GESTIÓN (Protegidas) ---
 Route::middleware(['auth', 'verified'])->group(function () {
-    
-    // Ruta para el Gestor de Addons/Módulos
     Route::get('/features', FeatureManager::class)->name('features');
-
 });
-    
-// --- API DE LICENCIAMIENTO (Pública para los clientes) ---
-// Movemos la ruta API a web.php para evitar problemas de Laravel 11 en cPanel
-// y le quitamos el middleware CSRF para que permita conexiones externas.
+
+// --- API PÚBLICA PARA CLIENTES ---
+// Validación de Licencia
 Route::post('/api/v1/validate-license', [LicenseController::class, 'validateLicense'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+
+// Descarga de Addons (Protegida internamente por lógica de licencia)
+Route::get('/api/v1/addons/download/{code}', [AddonController::class, 'download'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
 
 require __DIR__.'/auth.php';

@@ -3,17 +3,20 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use Livewire\WithFileUploads; // Importar Trait
 use App\Models\Feature;
 use Illuminate\Validation\Rule;
-use Livewire\Attributes\Layout; // Importar el atributo Layout
+use Livewire\Attributes\Layout;
 
-// Definir explícitamente el layout que debe usar este componente
 #[Layout('layouts.app')] 
 class FeatureManager extends Component
 {
+    use WithFileUploads; // Activar subida de archivos
+
     public $features;
     public $featureId;
-    public $code, $label, $description, $icon, $category;
+    public $code, $label, $description, $icon, $category, $version;
+    public $addonFile; // Variable para el archivo ZIP
     public $is_active = true;
     public $isModalOpen = false;
 
@@ -47,6 +50,8 @@ class FeatureManager extends Component
         $this->description = '';
         $this->icon = '📦';
         $this->category = 'general';
+        $this->version = '1.0.0';
+        $this->addonFile = null; // Limpiar archivo
         $this->is_active = true;
         $this->resetValidation();
     }
@@ -60,7 +65,9 @@ class FeatureManager extends Component
         $this->description = $feature->description;
         $this->icon = $feature->icon;
         $this->category = $feature->category;
+        $this->version = $feature->version ?? '1.0.0';
         $this->is_active = $feature->is_active;
+        $this->addonFile = null;
         $this->isModalOpen = true;
     }
 
@@ -69,19 +76,29 @@ class FeatureManager extends Component
         $this->validate([
             'code' => ['required', 'string', 'max:50', Rule::unique('features', 'code')->ignore($this->featureId)],
             'label' => 'required|string|max:100',
-            'icon' => 'required|string|max:100', 
+            'icon' => 'required|string|max:100',
             'category' => 'required|string',
             'is_active' => 'boolean',
+            'addonFile' => 'nullable|file|mimes:zip|max:10240', // Max 10MB, solo ZIP
         ]);
 
-        Feature::updateOrCreate(['id' => $this->featureId], [
+        $data = [
             'code' => $this->code,
             'label' => $this->label,
             'description' => $this->description,
             'icon' => $this->icon,
             'category' => $this->category,
+            'version' => $this->version,
             'is_active' => $this->is_active,
-        ]);
+        ];
+
+        // Guardar ZIP si se subió uno nuevo
+        if ($this->addonFile) {
+            $path = $this->addonFile->storeAs('addons', $this->code . '.zip'); // Guarda en storage/app/addons/codigo.zip
+            $data['file_path'] = $path;
+        }
+
+        Feature::updateOrCreate(['id' => $this->featureId], $data);
 
         session()->flash('message', $this->featureId ? 'Módulo actualizado correctamente.' : 'Nuevo módulo creado.');
         $this->closeModal();

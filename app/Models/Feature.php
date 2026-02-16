@@ -15,7 +15,9 @@ class Feature extends Model
         'description',
         'icon',
         'category',
-        'is_active'
+        'is_active',
+        'file_path', // Nuevo
+        'version'    // Nuevo
     ];
 
     protected $casts = [
