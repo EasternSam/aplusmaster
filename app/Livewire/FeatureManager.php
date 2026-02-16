@@ -5,7 +5,10 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Feature;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Layout; // Importar el atributo Layout
 
+// Definir explícitamente el layout que debe usar este componente
+#[Layout('layouts.app')] 
 class FeatureManager extends Component
 {
     public $features;
@@ -66,7 +69,7 @@ class FeatureManager extends Component
         $this->validate([
             'code' => ['required', 'string', 'max:50', Rule::unique('features', 'code')->ignore($this->featureId)],
             'label' => 'required|string|max:100',
-            'icon' => 'required|string|max:100', // Puede ser emoji o clase CSS
+            'icon' => 'required|string|max:100', 
             'category' => 'required|string',
             'is_active' => 'boolean',
         ]);
