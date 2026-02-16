@@ -5,36 +5,23 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\License;
 use App\Models\Package;
+use App\Models\Feature; // Importamos el modelo
 use Illuminate\Support\Str;
 
 class LicenseManager extends Component
 {
+    // ... (Propiedades existentes: $licenses, $packages, $licenseId, etc.) ...
     public $licenses;
     public $packages;
-    
-    // Estado del Formulario
     public $licenseId = null;
     public $client_name;
     public $expires_at;
     public $package_id;
-    
-    // Listas para Drag & Drop
-    public $activeFeatures = []; // Módulos activados (Derecha)
-    public $availableFeatures = []; // Módulos disponibles (Izquierda)
-    
+    public $activeFeatures = [];
+    public $availableFeatures = [];
     public $isModalOpen = false;
 
-    // Catálogo Maestro de Módulos (Definición visual)
-    const FEATURE_CATALOG = [
-        'academic' => ['label' => 'Gestión Académica', 'icon' => '🎓', 'desc' => 'Notas, Estudiantes, Cursos'],
-        'finance' => ['label' => 'Módulo Financiero', 'icon' => '💰', 'desc' => 'Pagos, Caja, Reportes de Ingresos'],
-        'inventory' => ['label' => 'Inventario', 'icon' => '📦', 'desc' => 'Productos, Stock, Ventas'],
-        'virtual_classroom' => ['label' => 'Aula Virtual', 'icon' => '💻', 'desc' => 'Integración Moodle/LMS'],
-        'reports_basic' => ['label' => 'Reportes Básicos', 'icon' => 'impr', 'desc' => 'Listados PDF sencillos'],
-        'reports_advanced' => ['label' => 'Reportes Avanzados', 'icon' => '📊', 'desc' => 'Estadísticas, BI, Exportación'],
-        'api_access' => ['label' => 'Acceso API', 'icon' => '🔌', 'desc' => 'Conexiones externas'],
-    ];
-
+    // ... (mount y loadData se mantienen igual) ...
     public function mount()
     {
         $this->loadData();
@@ -46,12 +33,32 @@ class LicenseManager extends Component
         $this->packages = Package::all();
     }
 
-    // Cuando cambia el plan seleccionado, rellenamos la lista activa automáticamente
+    // ===> ESTA ES LA PARTE CLAVE QUE CAMBIA <===
+    // En lugar de usar una constante, leemos de la tabla 'features'
+    public function getFeatureCatalogProperty()
+    {
+        $features = Feature::where('is_active', true)->get();
+        $catalog = [];
+
+        foreach($features as $f) {
+            $catalog[$f->code] = [
+                'label' => $f->label,
+                'icon'  => $f->icon,
+                'desc'  => $f->description
+            ];
+        }
+
+        return $catalog;
+    }
+    // ===========================================
+
+    // ... (Resto de métodos: updatedPackageId, openModal, editLicense, etc. se mantienen igual
+    // porque dependen de $this->featureCatalog, que ahora es dinámico gracias al método de arriba) ...
+    
     public function updatedPackageId($value)
     {
         if ($value) {
             $package = $this->packages->find($value);
-            // Convertimos las features del plan en la lista activa
             $this->activeFeatures = $package->features ?? [];
         } else {
             $this->activeFeatures = [];
@@ -63,7 +70,7 @@ class LicenseManager extends Component
     {
         $this->resetForm();
         $this->isModalOpen = true;
-        $this->syncLists(); // Inicializar listas
+        $this->syncLists();
     }
 
     public function editLicense($id)
@@ -76,7 +83,6 @@ class LicenseManager extends Component
         $this->expires_at = $license->expires_at ? $license->expires_at->format('Y-m-d') : null;
         $this->package_id = $license->package_id;
 
-        // Si tiene personalización, esa es la verdad. Si no, tomamos del paquete.
         if (!is_null($license->custom_features)) {
             $this->activeFeatures = $license->custom_features;
         } elseif ($license->package) {
@@ -89,15 +95,13 @@ class LicenseManager extends Component
         $this->isModalOpen = true;
     }
 
-    // Calcula qué queda disponible basándose en lo que ya está activo
     public function syncLists()
     {
-        $allKeys = array_keys(self::FEATURE_CATALOG);
-        // Disponibles = Todos - Activos
+        // Usamos la propiedad computada dinámica
+        $allKeys = array_keys($this->featureCatalog);
         $this->availableFeatures = array_values(array_diff($allKeys, $this->activeFeatures));
     }
 
-    // Método llamado desde JS cuando se suelta un item
     public function updateFeatureLists($active, $available)
     {
         $this->activeFeatures = $active;
@@ -117,10 +121,10 @@ class LicenseManager extends Component
         $this->expires_at = '';
         $this->package_id = null;
         $this->activeFeatures = [];
-        $this->availableFeatures = array_keys(self::FEATURE_CATALOG);
+        $this->availableFeatures = array_keys($this->featureCatalog);
         $this->resetValidation();
     }
-
+    
     private function generateLicenseKey()
     {
         return 'APLUS-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4));
@@ -133,13 +137,11 @@ class LicenseManager extends Component
             'expires_at'  => 'nullable|date',
         ]);
 
-        // Detectar si la lista actual difiere del plan original
         $isCustomized = true;
         if ($this->package_id) {
             $package = $this->packages->find($this->package_id);
             $planFeatures = $package->features ?? [];
             
-            // Si tienen los mismos elementos (sin importar orden), no es custom
             sort($planFeatures);
             $currentActive = $this->activeFeatures;
             sort($currentActive);
@@ -154,13 +156,12 @@ class LicenseManager extends Component
             'package_id'  => $this->package_id ?: null,
             'is_active'   => true,
             'expires_at'  => $this->expires_at ? $this->expires_at : null,
-            // Si se personalizó (arrastró), guardamos la lista exacta. Si no, NULL (hereda del plan).
             'custom_features' => $isCustomized ? $this->activeFeatures : null,
         ];
 
         if ($this->licenseId) {
             $license = License::find($this->licenseId);
-            $data['is_active'] = $license->is_active; 
+            // $data['is_active'] = $license->is_active; // Mantener estado anterior
             $license->update($data);
             session()->flash('message', 'Distribución actualizada.');
         } else {
@@ -180,16 +181,20 @@ class LicenseManager extends Component
         $license->save();
         $this->loadData();
     }
+    
+    public function revokeDomain($id)
+    {
+        $license = License::findOrFail($id);
+        $license->registered_domain = null;
+        $license->save();
+        $this->loadData();
+        session()->flash('message', 'Dominio desvinculado.');
+    }
 
     public function deleteLicense($id)
     {
         License::findOrFail($id)->delete();
         $this->loadData();
-    }
-
-    public function getFeatureCatalogProperty()
-    {
-        return self::FEATURE_CATALOG;
     }
 
     public function render()
