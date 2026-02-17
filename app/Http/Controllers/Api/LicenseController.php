@@ -51,35 +51,39 @@ class LicenseController extends Controller
                 ], 403);
             }
 
-            // 4. OBTENER CARACTERÍSTICAS (FEATURES) - BLOQUE BLINDADO
+            // 4. OBTENER CARACTERÍSTICAS (FEATURES) - LÓGICA CORREGIDA SEGÚN MIGRACIONES
+            // Estructura: Licencia -> package_id (Tabla packages columna 'features' JSON)
+            //           Licencia -> custom_features (JSON)
             $features = [];
+            
             try {
-                // INTENTO 1: Usando Query Builder (Nombres de tabla estándar)
-                // Ajusta 'license_package' y 'feature_package' si tus tablas tienen prefijos o nombres distintos
-                
-                // Primero intentamos ver si existen las tablas para no generar error fatal
-                // Nota: Esto es pseudo-verificación, idealmente deberías conocer tu esquema.
-                
-                $packageIds = DB::table('license_package')
-                                ->where('license_id', $licenseData->id)
-                                ->pluck('package_id');
-
-                if ($packageIds->isNotEmpty()) {
-                    $features = DB::table('features')
-                                ->join('feature_package', 'features.id', '=', 'feature_package.feature_id')
-                                ->whereIn('feature_package.package_id', $packageIds)
-                                ->distinct()
-                                ->pluck('features.slug') // Asegúrate que la columna se llame 'slug'
-                                ->toArray();
+                // A. Obtener features del Paquete base
+                if (!empty($licenseData->package_id)) {
+                    $package = DB::table('packages')->where('id', $licenseData->package_id)->first();
+                    
+                    if ($package && !empty($package->features)) {
+                        // Decodificar JSON de la tabla packages
+                        $packageFeatures = json_decode($package->features, true);
+                        if (is_array($packageFeatures)) {
+                            $features = array_merge($features, $packageFeatures);
+                        }
+                    }
                 }
 
+                // B. Obtener features personalizadas de la Licencia (custom_features en tabla licenses)
+                if (!empty($licenseData->custom_features)) {
+                    $customFeatures = json_decode($licenseData->custom_features, true);
+                    if (is_array($customFeatures)) {
+                        $features = array_merge($features, $customFeatures);
+                    }
+                }
+
+                // Limpiar duplicados y reindexar array
+                $features = array_values(array_unique($features));
+
             } catch (\Exception $ex) {
-                // Si falla la obtención de features (por nombres de tabla incorrectos), 
-                // NO BLOQUEAMOS el sistema. Solo logueamos el error.
-                Log::error("DIAGNOSTICO: Error obteniendo features (SQL): " . $ex->getMessage());
-                
-                // INTENTO DE FALLBACK: Si tienes una columna 'features' JSON directa en la tabla licenses (opcional)
-                // $features = json_decode($licenseData->features ?? '[]', true);
+                Log::error("DIAGNOSTICO: Error procesando features JSON: " . $ex->getMessage());
+                // No bloqueamos, enviamos array vacío si falla el JSON
             }
 
             // 5. RESPUESTA DE ÉXITO
@@ -88,8 +92,8 @@ class LicenseController extends Controller
                 'valid' => true,
                 'message' => 'Licencia válida.',
                 'data' => [
-                    'plan_name' => 'Standard',
-                    'features' => $features // Enviamos lo que hayamos podido recuperar o array vacío
+                    'plan_name' => 'Standard', // Puedes obtener $package->name si lo deseas
+                    'features' => $features
                 ]
             ], 200);
 
