@@ -5,13 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB; // Usaremos DB directo para descartar problemas de Eloquent
+use Illuminate\Support\Facades\DB;
 
 class LicenseController extends Controller
 {
     public function validateLicense(Request $request)
     {
-        // 1. Log inicial
         Log::info("DIAGNOSTICO: Inicio validación", $request->all());
 
         try {
@@ -19,61 +18,56 @@ class LicenseController extends Controller
             $domain = $request->input('domain');
 
             if (!$key || !$domain) {
-                Log::warning("DIAGNOSTICO: Faltan datos");
                 return response()->json(['status' => 'error', 'message' => 'Datos incompletos'], 400);
             }
 
-            // 2. Prueba de conexión a BD pura
-            try {
-                // Intentamos una consulta cruda para ver si la BD responde
-                $licenseData = DB::table('licenses')->where('license_key', $key)->first();
-            } catch (\Exception $e) {
-                Log::error("DIAGNOSTICO: Error Conexión BD: " . $e->getMessage());
-                return response()->json(['status' => 'error', 'message' => 'Error BD Server'], 500);
-            }
+            // Consulta directa a BD para evitar problemas de modelos/cache
+            $licenseData = DB::table('licenses')->where('license_key', $key)->first();
 
-            // 3. Resultado de la consulta
             if (!$licenseData) {
-                Log::info("DIAGNOSTICO: Licencia no encontrada en tabla 'licenses'");
                 return response()->json(['status' => 'error', 'message' => 'Licencia no encontrada'], 404);
             }
 
-            Log::info("DIAGNOSTICO: Licencia encontrada ID: " . $licenseData->id);
-
-            // 4. Lógica de validación manual (sin modelos)
+            // Validación de estado (Activa/Suspendida)
             $is_active = $licenseData->is_active ?? 0;
-            $expires_at = $licenseData->expires_at;
-            $registered_domain = $licenseData->registered_domain;
-
+            
             if (!$is_active) {
-                return response()->json(['status' => 'error', 'message' => 'Suspendida'], 403);
+                // Esta es la respuesta que SÍ funciona cuando suspendes
+                return response()->json(['status' => 'error', 'message' => 'Licencia suspendida.'], 403);
             }
 
-            // Normalizar dominios
+            // Normalización de dominios
             $incomingDomain = $this->cleanDomain($domain);
-            $storedDomain = $this->cleanDomain($registered_domain);
-
-            Log::info("DIAGNOSTICO: Dominios", ['recibido' => $incomingDomain, 'guardado' => $storedDomain]);
+            $storedDomain = $this->cleanDomain($licenseData->registered_domain);
 
             if (empty($storedDomain)) {
                 // Auto-registro
                 DB::table('licenses')->where('id', $licenseData->id)->update(['registered_domain' => $incomingDomain]);
-                Log::info("DIAGNOSTICO: Auto-registrado");
+                Log::info("DIAGNOSTICO: Auto-registrado dominio {$incomingDomain}");
             } elseif ($incomingDomain !== $storedDomain) {
-                Log::warning("DIAGNOSTICO: Mismatch de dominio");
-                return response()->json(['status' => 'error', 'message' => 'Dominio incorrecto'], 403);
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => "Dominio no autorizado ({$incomingDomain}). Registrado para: {$licenseData->registered_domain}"
+                ], 403);
             }
 
-            Log::info("DIAGNOSTICO: Éxito total");
+            // RESPUESTA DE ÉXITO (Aquí es donde el cliente fallaba al interpretar)
+            // Nos aseguramos de enviar 'status' => 'success' explícitamente
+            Log::info("DIAGNOSTICO: Enviando respuesta de ÉXITO");
+            
             return response()->json([
-                'status' => 'success',
-                'message' => 'Validada',
-                'data' => ['plan_name' => 'Standard', 'features' => []]
+                'status' => 'success', // CLAVE CRÍTICA
+                'valid' => true,       // Redundancia por si acaso
+                'message' => 'Licencia válida.',
+                'data' => [
+                    'plan_name' => 'Standard', 
+                    'features' => []
+                ]
             ], 200);
 
         } catch (\Throwable $e) {
-            Log::error("DIAGNOSTICO: Crash Fatal: " . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => 'Error Fatal'], 500);
+            Log::error("DIAGNOSTICO: Error Fatal: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Error interno del servidor.'], 500);
         }
     }
 
