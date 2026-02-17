@@ -11,9 +11,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
+    ->withMiddleware(function (Middleware $middleware) {
+        // IMPORTANTE: No registrar VerifyLicense::class aquí en Aplusmaster.
+        // Aplusmaster es el emisor de licencias, no un consumidor.
+        
+        $middleware->validateCsrfTokens(except: [
+            'api/*', // Excluir rutas API de CSRF para permitir llamadas externas
+        ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+    ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
