@@ -15,8 +15,9 @@ class License extends Model
         'registered_domain',
         'is_active',
         'expires_at',
-        'package_id',      // Nuevo: ID del plan base
-        'custom_features', // Nuevo: Excepciones específicas
+        'package_id',
+        'custom_features',
+        'academic_mode', // Nuevo: Permite elegir entre 'courses', 'careers' o 'both'
     ];
 
     protected $casts = [

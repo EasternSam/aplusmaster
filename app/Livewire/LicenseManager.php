@@ -5,23 +5,22 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\License;
 use App\Models\Package;
-use App\Models\Feature; // Importamos el modelo
+use App\Models\Feature; 
 use Illuminate\Support\Str;
 
 class LicenseManager extends Component
 {
-    // ... (Propiedades existentes: $licenses, $packages, $licenseId, etc.) ...
     public $licenses;
     public $packages;
     public $licenseId = null;
     public $client_name;
     public $expires_at;
     public $package_id;
+    public $academic_mode = 'both'; // Propiedad para el nuevo campo
     public $activeFeatures = [];
     public $availableFeatures = [];
     public $isModalOpen = false;
 
-    // ... (mount y loadData se mantienen igual) ...
     public function mount()
     {
         $this->loadData();
@@ -33,8 +32,6 @@ class LicenseManager extends Component
         $this->packages = Package::all();
     }
 
-    // ===> ESTA ES LA PARTE CLAVE QUE CAMBIA <===
-    // En lugar de usar una constante, leemos de la tabla 'features'
     public function getFeatureCatalogProperty()
     {
         $features = Feature::where('is_active', true)->get();
@@ -50,11 +47,7 @@ class LicenseManager extends Component
 
         return $catalog;
     }
-    // ===========================================
 
-    // ... (Resto de métodos: updatedPackageId, openModal, editLicense, etc. se mantienen igual
-    // porque dependen de $this->featureCatalog, que ahora es dinámico gracias al método de arriba) ...
-    
     public function updatedPackageId($value)
     {
         if ($value) {
@@ -82,6 +75,7 @@ class LicenseManager extends Component
         $this->client_name = $license->client_name;
         $this->expires_at = $license->expires_at ? $license->expires_at->format('Y-m-d') : null;
         $this->package_id = $license->package_id;
+        $this->academic_mode = $license->academic_mode ?? 'both'; // Cargar modo académico
 
         if (!is_null($license->custom_features)) {
             $this->activeFeatures = $license->custom_features;
@@ -97,7 +91,6 @@ class LicenseManager extends Component
 
     public function syncLists()
     {
-        // Usamos la propiedad computada dinámica
         $allKeys = array_keys($this->featureCatalog);
         $this->availableFeatures = array_values(array_diff($allKeys, $this->activeFeatures));
     }
@@ -120,6 +113,7 @@ class LicenseManager extends Component
         $this->client_name = '';
         $this->expires_at = '';
         $this->package_id = null;
+        $this->academic_mode = 'both';
         $this->activeFeatures = [];
         $this->availableFeatures = array_keys($this->featureCatalog);
         $this->resetValidation();
@@ -133,8 +127,9 @@ class LicenseManager extends Component
     public function saveLicense()
     {
         $this->validate([
-            'client_name' => 'required|string|max:255',
-            'expires_at'  => 'nullable|date',
+            'client_name'   => 'required|string|max:255',
+            'expires_at'    => 'nullable|date',
+            'academic_mode' => 'required|in:courses,careers,both',
         ]);
 
         $isCustomized = true;
@@ -152,16 +147,16 @@ class LicenseManager extends Component
         }
 
         $data = [
-            'client_name' => $this->client_name,
-            'package_id'  => $this->package_id ?: null,
-            'is_active'   => true,
-            'expires_at'  => $this->expires_at ? $this->expires_at : null,
+            'client_name'     => $this->client_name,
+            'package_id'      => $this->package_id ?: null,
+            'is_active'       => true,
+            'expires_at'      => $this->expires_at ? $this->expires_at : null,
             'custom_features' => $isCustomized ? $this->activeFeatures : null,
+            'academic_mode'   => $this->academic_mode,
         ];
 
         if ($this->licenseId) {
             $license = License::find($this->licenseId);
-            // $data['is_active'] = $license->is_active; // Mantener estado anterior
             $license->update($data);
             session()->flash('message', 'Distribución actualizada.');
         } else {

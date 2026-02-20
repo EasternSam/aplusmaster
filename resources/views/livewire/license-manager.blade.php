@@ -116,7 +116,7 @@
 
                 <div class="px-6 py-6 space-y-6">
                     <!-- Configuración Básica -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div class="md:col-span-1">
                             <label class="block text-sm font-medium text-gray-700">Nombre Cliente</label>
                             <input type="text" wire:model="client_name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
@@ -131,13 +131,20 @@
                             </select>
                         </div>
                         <div class="md:col-span-1">
+                            <label class="block text-sm font-medium text-gray-700">Modo Académico</label>
+                            <select wire:model="academic_mode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                                <option value="both">Ambos (Cursos y Carreras)</option>
+                                <option value="courses">Cursos (Instituto)</option>
+                                <option value="careers">Carreras (Universidad)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-1">
                             <label class="block text-sm font-medium text-gray-700">Vencimiento</label>
                             <input type="date" wire:model="expires_at" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                         </div>
                     </div>
 
                     <!-- AREA DE ARRASTRE -->
-                    <!-- Alpine.js controla el drag & drop y sincroniza con Livewire al soltar -->
                     <div x-data="{
                         active: @entangle('activeFeatures'),
                         available: @entangle('availableFeatures'),
